@@ -1,113 +1,225 @@
-import type { Application, User, Document } from '@/types';
+import type { Application, User, Document, ProfileResponse } from '@/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
-// Mock mode when no API URL is provided
-const isMockMode = !API_BASE_URL;
+// Debug logging
+console.log('API_BASE_URL:', API_BASE_URL);
+console.log('VITE_API_URL env var:', import.meta.env.VITE_API_URL);
 
-class ApiClient {
-  private baseURL: string;
+// Helper function to get auth token
+const getAuthToken = () => {
+  return localStorage.getItem('auth-token');
+};
 
-  constructor(baseURL: string = API_BASE_URL) {
-    this.baseURL = baseURL;
+// Helper function to handle API responses
+const handleResponse = async (response: Response) => {
+  const data = await response.json();
+  
+  if (!response.ok) {
+    // Log more details for debugging
+    console.error('API Error:', {
+      status: response.status,
+      statusText: response.statusText,
+      data
+    });
+    throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
   }
+  
+  return data;
+};
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    if (isMockMode) {
-      // Return mock data for demo purposes
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
-      throw new Error('Mock mode - API not implemented yet');
-    }
-
-    const url = `${this.baseURL}${endpoint}`;
-    const config: RequestInit = {
+// Helper function to handle network errors
+const makeRequest = async (url: string, options: RequestInit = {}) => {
+  try {
+    const response = await fetch(url, {
+      ...options,
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
       },
-      ...options,
-    };
-
-    const response = await fetch(url, config);
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    });
+    return response;
+  } catch (error) {
+    console.error('Network Error:', error);
+    // Check if it's a network error (backend not running)
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to server. Please ensure the backend is running.');
     }
-
-    return response.json();
+    throw error;
   }
+};
 
+// API client with authentication
+export const api = {
   // Auth endpoints
-  async login(email: string, password: string): Promise<{ user: User; token: string }> {
-    return this.request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-  }
+  auth: {
+    register: async (credentials: { name: string; email: string; password: string }) => {
+      console.log('Making register request to:', `${API_BASE_URL}/auth/register`);
+      try {
+        const response = await makeRequest(`${API_BASE_URL}/auth/register`, {
+          method: 'POST',
+          body: JSON.stringify(credentials),
+        });
+        console.log('Register response status:', response.status);
+        return handleResponse(response);
+      } catch (error) {
+        console.error('Register request failed:', error);
+        throw error;
+      }
+    },
 
-  async register(email: string, password: string, name: string): Promise<{ user: User; token: string }> {
-    return this.request('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, name }),
-    });
-  }
+    login: async (credentials: { email: string; password: string }) => {
+      console.log('Making login request to:', `${API_BASE_URL}/auth/login`);
+      try {
+        const response = await makeRequest(`${API_BASE_URL}/auth/login`, {
+          method: 'POST',
+          body: JSON.stringify(credentials),
+        });
+        console.log('Login response status:', response.status);
+        return handleResponse(response);
+      } catch (error) {
+        console.error('Login request failed:', error);
+        throw error;
+      }
+    },
 
-  async logout(): Promise<void> {
-    return this.request('/auth/logout', { method: 'POST' });
-  }
+    logout: async () => {
+      const token = getAuthToken();
+      if (!token) return;
 
-  async refreshToken(): Promise<{ token: string }> {
-    return this.request('/auth/refresh', { method: 'POST' });
-  }
+      const response = await makeRequest(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return handleResponse(response);
+    },
+
+    getProfile: async (): Promise<ProfileResponse> => {
+      const token = getAuthToken();
+      if (!token) throw new Error('No auth token');
+
+      const response = await makeRequest(`${API_BASE_URL}/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return handleResponse(response);
+    },
+
+    changePassword: async (currentPassword: string, newPassword: string) => {
+      const token = getAuthToken();
+      if (!token) throw new Error('No auth token');
+
+      const response = await makeRequest(`${API_BASE_URL}/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      return handleResponse(response);
+    },
+
+    forgotPassword: async (email: string) => {
+      const response = await makeRequest(`${API_BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+      return handleResponse(response);
+    },
+
+    resetPassword: async (email: string, otp: string, newPassword: string) => {
+      const response = await makeRequest(`${API_BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify({ email, otp, newPassword }),
+      });
+      return handleResponse(response);
+    },
+  },
 
   // Applications endpoints
-  async getApplications(): Promise<Application[]> {
-    return this.request('/applications');
-  }
+  applications: {
+    getAll: async (filters?: {
+      priority?: string;
+      status?: string;
+      country?: string;
+      startingSemester?: string;
+      sortBy?: string;
+      sortOrder?: string;
+    }) => {
+      const token = getAuthToken();
+      if (!token) throw new Error('No auth token');
 
-  async createApplication(application: Omit<Application, '_id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<Application> {
-    return this.request('/applications', {
-      method: 'POST',
-      body: JSON.stringify(application),
-    });
-  }
+      const params = new URLSearchParams();
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value) params.append(key, value);
+        });
+      }
 
-  async updateApplication(id: string, updates: Partial<Application>): Promise<Application> {
-    return this.request(`/applications/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(updates),
-    });
-  }
+      const response = await makeRequest(`${API_BASE_URL}/applications?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return handleResponse(response);
+    },
 
-  async deleteApplication(id: string): Promise<void> {
-    return this.request(`/applications/${id}`, { method: 'DELETE' });
-  }
+    getById: async (id: string) => {
+      const token = getAuthToken();
+      if (!token) throw new Error('No auth token');
 
-  // Documents endpoints
-  async getDocuments(): Promise<Document[]> {
-    return this.request('/documents');
-  }
+      const response = await makeRequest(`${API_BASE_URL}/applications/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return handleResponse(response);
+    },
 
-  async createDocument(document: Omit<Document, '_id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<Document> {
-    return this.request('/documents', {
-      method: 'POST',
-      body: JSON.stringify(document),
-    });
-  }
+    create: async (application: Omit<Application, '_id' | 'userId' | 'createdAt' | 'updatedAt'>) => {
+      const token = getAuthToken();
+      if (!token) throw new Error('No auth token');
 
-  async updateDocument(id: string, updates: Partial<Document>): Promise<Document> {
-    return this.request(`/documents/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(updates),
-    });
-  }
+      const response = await makeRequest(`${API_BASE_URL}/applications`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(application),
+      });
+      return handleResponse(response);
+    },
 
-  async deleteDocument(id: string): Promise<void> {
-    return this.request(`/documents/${id}`, { method: 'DELETE' });
-  }
-}
+    update: async (id: string, updates: Partial<Application>) => {
+      const token = getAuthToken();
+      if (!token) throw new Error('No auth token');
 
-export const apiClient = new ApiClient();
+      const response = await makeRequest(`${API_BASE_URL}/applications/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      return handleResponse(response);
+    },
+
+    delete: async (id: string) => {
+      const token = getAuthToken();
+      if (!token) throw new Error('No auth token');
+
+      const response = await makeRequest(`${API_BASE_URL}/applications/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return handleResponse(response);
+    },
+  },
+};
+
+export default api;

@@ -1,69 +1,23 @@
-export type Status =
-  | 'PLANNING' | 'ELIGIBLE' | 'APPLIED' | 'SUBMITTED' | 'INTERVIEW' | 'OFFER' | 'WAITLISTED' | 'REJECTED';
-
-export interface University {
-  _id: string;
-  name: string;
-  country?: string;
-  city?: string;
-  website?: string;
-}
-
-export interface Program {
-  _id: string;
-  universityId: string;
-  degree: 'MS' | 'MSc' | 'MEng' | 'MA' | 'MBA' | 'Other';
-  title: string;
-  term: 'Fall' | 'Spring' | 'Summer' | 'Winter';
-  year: number;
-  mode?: 'On-campus' | 'Online' | 'Hybrid';
-}
-
-export interface Requirement {
-  key: string;
-  label: string;
-  required: boolean;
-  completed: boolean;
-  note?: string;
-}
-
-export interface Deadline {
-  label: string;
-  date: string;
-  type: 'Priority' | 'Final' | 'Scholarship' | 'Interview' | 'Other';
-}
+export type Status = 'Draft' | 'In Progress' | 'Submitted' | 'Accepted' | 'Rejected';
+export type Priority = 'High' | 'Medium' | 'Low';
 
 export interface Application {
   _id: string;
   userId: string;
-  university: University;
-  program: Program;
+  universityName: string;
+  degree: string;
+  priority: Priority;
+  numberOfSemesters: number;
+  applicationPortal: string;
+  city: string;
+  country: string;
+  location: string;
+  startingSemester: string;
+  tuitionFees: number;
+  livingExpenses: number;
+  documentsRequired?: string[];
   status: Status;
-  priority?: 'Low' | 'Medium' | 'High';
-  deadlines: Deadline[];
-  links?: {
-    official?: string;
-    apply?: string;
-    portal?: string;
-    checklist?: string;
-  };
-  contacts?: {
-    name?: string;
-    email?: string;
-  }[];
-  eligibility?: {
-    gpa?: string;
-    language?: string;
-    tests?: string[];
-    notes?: string;
-  };
-  fees?: {
-    application?: number;
-    tuitionAnnual?: number;
-    currency?: string;
-    waiverEligible?: boolean;
-  };
-  requirements: Requirement[];
+  deadline: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -86,4 +40,31 @@ export interface Document {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  message: string;
+  data: {
+    user: User;
+    token: string;
+  };
+}
+
+export interface ProfileResponse {
+  success: boolean;
+  data: {
+    user: User;
+  };
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterCredentials {
+  name: string;
+  email: string;
+  password: string;
 }

@@ -11,33 +11,32 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationsStore } from "@/store/applications";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { format, isAfter, isBefore, addDays } from "date-fns";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { AddApplicationForm } from "@/components/AddApplicationForm";
 
 export default function Dashboard() {
-  const { applications } = useApplicationsStore();
+  const { applications, fetchApplications } = useApplicationsStore();
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const stats = useMemo(() => {
     const total = applications.length;
-    const offers = applications.filter(app => app.status === 'OFFER').length;
-    const interviews = applications.filter(app => app.status === 'INTERVIEW').length;
-    const rejections = applications.filter(app => app.status === 'REJECTED').length;
+    const offers = applications.filter(app => app.status === 'Accepted').length;
+    const submitted = applications.filter(app => app.status === 'Submitted').length;
+    const rejections = applications.filter(app => app.status === 'Rejected').length;
 
     // Calculate upcoming deadlines (next 7 days)
     const now = new Date();
     const nextWeek = addDays(now, 7);
     const upcomingDeadlines = applications
-      .flatMap(app => app.deadlines.map(deadline => ({
-        ...deadline,
-        application: app
-      })))
-      .filter(deadline => {
-        const deadlineDate = new Date(deadline.date);
+      .filter(app => {
+        const deadlineDate = new Date(app.deadline);
         return isAfter(deadlineDate, now) && isBefore(deadlineDate, nextWeek);
       })
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
 
-    return { total, offers, interviews, rejections, upcomingDeadlines };
+    return { total, offers, submitted, rejections, upcomingDeadlines };
   }, [applications]);
 
   const recentActivity = useMemo(() => {
@@ -46,20 +45,40 @@ export default function Dashboard() {
       .slice(0, 5);
   }, [applications]);
 
+  const handleAddSuccess = () => {
+    setShowAddForm(false);
+    fetchApplications();
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            Dashboard
+          </h1>
+          <p className="text-lg text-muted-foreground">
             Track your graduate application journey
           </p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Application
-        </Button>
+        <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+          <DialogTrigger asChild>
+            <Button className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Application
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add New Application</DialogTitle>
+              <DialogDescription>
+                Create a new graduate program application with all the required details.
+              </DialogDescription>
+            </DialogHeader>
+            <AddApplicationForm onSuccess={handleAddSuccess} onCancel={() => setShowAddForm(false)} />
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Stats Grid */}
@@ -77,10 +96,10 @@ export default function Dashboard() {
           description={`Acceptance rate: ${stats.total > 0 ? Math.round((stats.offers / stats.total) * 100) : 0}%`}
         />
         <StatCard
-          title="Interviews"
-          value={stats.interviews}
+          title="Submitted"
+          value={stats.submitted}
           icon={TrendingUp}
-          description="Scheduled or completed"
+          description="Applications submitted"
         />
         <StatCard
           title="Upcoming Deadlines"
@@ -108,19 +127,22 @@ export default function Dashboard() {
                 No upcoming deadlines in the next 7 days
               </p>
             ) : (
-              stats.upcomingDeadlines.map((deadline, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+              stats.upcomingDeadlines.map((application) => (
+                <div key={application._id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
                     <p className="font-medium text-sm">
-                      {deadline.application.university.name}
+                      {application.universityName}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {deadline.label} • {deadline.type}
+                      {application.degree}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium">
-                      {format(new Date(deadline.date), 'MMM dd')}
+                      {format(new Date(application.deadline), 'MMM dd')}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {application.priority} priority
                     </p>
                   </div>
                 </div>
@@ -141,21 +163,27 @@ export default function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentActivity.map((application) => (
-              <div key={application._id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium text-sm">
-                    {application.university.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {application.program.title} • {application.program.degree}
-                  </p>
+            {recentActivity.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                No recent activity
+              </p>
+            ) : (
+              recentActivity.map((application) => (
+                <div key={application._id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">
+                      {application.universityName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {application.degree} • {application.city}, {application.country}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={application.status} />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <StatusBadge status={application.status} />
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

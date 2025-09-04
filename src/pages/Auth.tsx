@@ -18,45 +18,37 @@ export default function Auth({ mode }: AuthProps) {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   
   const navigate = useNavigate();
-  const { login } = useAuthStore();
+  const { login, register, isLoading, error, clearError } = useAuthStore();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    clearError();
 
     try {
-      // Mock authentication - in real app this would call the API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const mockUser = {
-        _id: '1',
-        email,
-        name: mode === 'signup' ? name : 'Demo User',
-        avatar: undefined
-      };
-
-      login(mockUser);
-      
-      toast({
-        title: mode === 'signup' ? "Account created!" : "Welcome back!",
-        description: mode === 'signup' 
-          ? "Your account has been created successfully." 
-          : "You have been signed in successfully.",
-      });
+      if (mode === 'signup') {
+        await register(name, email, password);
+        toast({
+          title: "Account created!",
+          description: "Your account has been created successfully.",
+        });
+      } else {
+        await login(email, password);
+        toast({
+          title: "Welcome back!",
+          description: "You have been signed in successfully.",
+        });
+      }
 
       navigate('/app');
     } catch (error) {
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 

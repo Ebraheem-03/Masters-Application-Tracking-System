@@ -23,33 +23,39 @@ export function StatCard({
   className 
 }: StatCardProps) {
   return (
-    <Card className={cn("", className)}>
+    <Card className={cn("group cursor-pointer transition-all duration-300 hover:scale-105", className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+        <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
           {title}
         </CardTitle>
         {Icon && (
-          <Icon className="h-4 w-4 text-muted-foreground" />
+          <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+            <Icon className="h-4 w-4 text-primary" />
+          </div>
         )}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-3xl font-bold bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
+          {value}
+        </div>
         {description && (
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-2 group-hover:text-muted-foreground/80 transition-colors">
             {description}
           </p>
         )}
         {trend && (
-          <div className="flex items-center mt-1">
+          <div className="flex items-center mt-2">
             <span
               className={cn(
-                "text-xs font-medium",
-                trend.isPositive ? "text-success" : "text-destructive"
+                "text-sm font-medium px-2 py-1 rounded-md",
+                trend.isPositive 
+                  ? "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/30" 
+                  : "text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-900/30"
               )}
             >
-              {trend.isPositive ? "+" : ""}{trend.value}%
+              {trend.isPositive ? "↗ +" : "↘ "}{trend.value}%
             </span>
-            <span className="text-xs text-muted-foreground ml-1">
+            <span className="text-xs text-muted-foreground ml-2">
               from last month
             </span>
           </div>

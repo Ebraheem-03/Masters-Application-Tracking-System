@@ -2,6 +2,7 @@ import { Search, Bell, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { Link } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,8 +35,10 @@ export function Header() {
           <div className="flex items-center gap-2">
             <ThemeToggle />
             
-            <Button variant="ghost" size="sm">
-              <Bell className="h-4 w-4" />
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/app/notifications">
+                <Bell className="h-4 w-4" />
+              </Link>
             </Button>
 
             <DropdownMenu>
@@ -50,8 +53,12 @@ export function Header() {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/app/profile">Profile</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/app/settings">Settings</Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout}>
                   Logout
